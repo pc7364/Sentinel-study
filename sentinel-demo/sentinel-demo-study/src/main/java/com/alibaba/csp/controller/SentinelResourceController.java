@@ -2,6 +2,7 @@ package com.alibaba.csp.controller;
 
 import com.alibaba.csp.sentinel.Entry;
 import com.alibaba.csp.sentinel.SphU;
+import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
 import com.alibaba.csp.sentinel.slots.block.RuleConstant;
 import com.alibaba.csp.sentinel.slots.block.flow.FlowRule;
@@ -13,19 +14,30 @@ import javax.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * @Desc
+ * @Author pc
+ * @Date 2024/7/3 10:49
+ */
 @RestController
-public class FlowDemoController {
-    private static final String RESOURCE_NAME = "flowDemo";
+public class SentinelResourceController {
 
-    @RequestMapping("/hello")
-    public String hello(){
-        try(Entry entry = SphU.entry(RESOURCE_NAME)){
-            //保护的资源
-            System.out.println("hello");
-            return "hello";
-        }catch (BlockException e){
-            return "被限流了";
-        }
+    @RequestMapping("/annotationDemo")
+    @SentinelResource(value = "annotationDemo",blockHandler = "handleException",
+            fallback = "fallbackException")
+    public String annotationDemo(){
+        int i = 1/0;
+        return "Annotation Demo 1";
+    }
+
+    // Block 异常处理函数
+    public String handleException(BlockException ex){
+        return "被流控了";
+    }
+
+    // Fallback 异常处理函数
+    public String fallbackException(Throwable t){
+        return "被异常降级了";
     }
 
     @PostConstruct
@@ -33,7 +45,7 @@ public class FlowDemoController {
         List<FlowRule> rules = new ArrayList<>();
         FlowRule rule = new FlowRule();
         //设置受保护的资源
-        rule.setResource(RESOURCE_NAME);
+        rule.setResource("annotationDemo");
         // 设置流控规则 QPS
         rule.setGrade(RuleConstant.FLOW_GRADE_QPS);
         // 设置受保护的资源阈值
