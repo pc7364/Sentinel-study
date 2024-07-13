@@ -86,7 +86,35 @@ import com.alibaba.csp.sentinel.util.function.Predicate;
  *
  * @author qinan.qn
  * @author jialiang.linjl
+ *
+ * 此统计节点维护了三种实时统计指标：
+ *      秒级指标 (rollingCounterInSecond)：跟踪每秒内的资源使用情况。
+ *      分钟级指标 (rollingCounterInMinute)：记录每分钟内的资源使用状况。
+ *      线程计数：监控当前正在执行的线程数量。
+ * 实现机制
+ *      Sentinel运用滑动窗口算法实时记录和计算资源的统计信息。滑动窗口的基础架构是LeapArray，它在ArrayMetric中实现。
+ * 滑动窗口工作流程
+ *
+ * 案例1：首个请求到达
+ *      当第一个请求到来时，Sentinel创建一个新的窗口，这个窗口有特定的时间跨度，用于存储运行时统计信息，比如总响应时间、入站请求（QPS）、阻塞请求等。时间跨度由采样次数确定。
+ * 案例2：连续请求
+ *      随着连续请求的不断到来，Sentinel在滑动窗口中记录这些请求的统计信息，保持数据的实时性和有效性。
+ * 案例3：请求持续，旧窗口失效
+ *      当请求持续涌入，且先前的窗口由于时间流逝而变得无效时，滑动窗口会自动移除这些旧窗口，同时保留最新的统计信息。
+ * 决策过程
+ *      Sentinel根据有效窗口中的统计信息来决定是否允许请求通过。例如，如果规则设定只允许100个请求通过，Sentinel会计算所有有效窗口中的QPS总和，并与规则中定义的阈值进行比较，从而决定是否放行新的请求。
+ * 总结
+ *      该功能通过滑动窗口机制实时监控资源使用情况，为流量控制、熔断等策略提供决策依据。
  */
+/**
+ * 该类的主要功能包括：
+ *      维护三种实时统计指标：秒级指标（rollingCounterInSecond）、分钟级指标（rollingCounterInMinute）和线程计数（curThreadNum）。
+ *      提供方法来获取和更新统计指标，如addPassRequest用于增加通过的请求数，addRtAndSuccess用于增加成功请求数和响应时间，increaseBlockQps用于增加阻塞请求数等。
+ *      提供方法来重置统计信息，如reset方法。
+ *      提供方法来获取特定时间范围内的指标详情，如metrics方法用于获取最近60秒内的指标详情。
+ */
+//这个类主要用于统计资源的使用情况，包括每秒请求数（QPS）、阻塞请求数、成功请求数、异常请求数、平均响应时间等指标。
+//通过滑动窗口算法，StatisticNode可以实时记录和计算资源的统计信息，为流量控制、熔断等策略提供决策依据。
 public class StatisticNode implements Node {
 
     /**
