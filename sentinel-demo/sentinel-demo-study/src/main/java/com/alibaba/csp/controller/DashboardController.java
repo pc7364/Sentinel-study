@@ -64,5 +64,19 @@ public class DashboardController {
 
 
 
+    @PostConstruct
+    private void initFlowRules(){
+        List<FlowRule> rules = new ArrayList<>();
+        FlowRule rule = new FlowRule();
+        //设置受保护的资源
+        rule.setResource("GET:/test");
+        // 设置流控规则 QPS
+        rule.setGrade(RuleConstant.FLOW_GRADE_QPS);
+        // 设置受保护的资源阈值
+        rule.setCount(1);
+        rules.add(rule);
+        // 加载配置好的规则
+        FlowRuleManager.loadRules(rules);
+    }
 
 }

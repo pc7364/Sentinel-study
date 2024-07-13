@@ -239,9 +239,18 @@ public class ArrayMetric implements Metric {
         wrap.value().addSuccess(count);
     }
 
+    /**
+     * 增加通过数量。
+     * 此方法用于在当前窗口中增加指定数量的通过计数。它首先获取当前的数据窗口，然后通过窗口的值对象来增加通过计数。
+     * 这种设计允许对数据窗口的操作保持封装，同时提供了一种灵活的方式来更新窗口内的统计信息。
+     *
+     * @param count 要增加的通过数量。此参数用于指定在当前窗口中应增加的通过计数。
+     */
     @Override
     public void addPass(int count) {
+        // 获取当前窗口的包装对象
         WindowWrap<MetricBucket> wrap = data.currentWindow();
+        // 在当前窗口的MetricBucket中增加通过数量
         wrap.value().addPass(count);
     }
 

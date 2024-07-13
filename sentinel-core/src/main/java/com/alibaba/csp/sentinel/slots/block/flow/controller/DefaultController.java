@@ -68,10 +68,19 @@ public class DefaultController implements TrafficShapingController {
         return true;
     }
 
+    /**
+     * 计算给定节点的平均使用令牌数。
+     * 平均使用令牌数的计算方式取决于规则的等级。如果规则等级为线程级，
+     * 则返回当前线程数；如果规则等级为流量级，则返回每秒通过的请求数（QPS）的整数部分。
+     *
+     * @param node 节点对象，用于获取当前的线程数或通过的QPS。
+     * @return 平均使用令牌数，根据规则等级不同，可能是当前线程数或QPS的整数部分。
+     */
     private int avgUsedTokens(Node node) {
         if (node == null) {
             return DEFAULT_AVG_USED_TOKENS;
         }
+        // 根据规则等级决定计算平均使用令牌数的方式
         return grade == RuleConstant.FLOW_GRADE_THREAD ? node.curThreadNum() : (int)(node.passQps());
     }
 
