@@ -85,55 +85,89 @@ public class FlowRuleChecker {
         return rule.getRater().canPass(selectedNode, acquireCount, prioritized);
     }
 
+    /**
+     * 根据流量规则、当前上下文和默认节点选择参考节点。
+     * 此函数的目的是根据规则的策略和引用资源确定是否以及如何选择节点作为参考。
+     *
+     * @param rule 流量规则，包含策略和引用资源信息。
+     * @param context 当前上下文，用于比较引用资源是否与当前上下文匹配。
+     * @param node 默认节点，如果策略为链式且引用资源与上下文匹配，则直接返回此节点。
+     * @return 根据规则的策略选择的参考节点，如果没有找到合适的节点则返回null。
+     */
     static Node selectReferenceNode(FlowRule rule, Context context, DefaultNode node) {
+        // 从规则中获取引用资源和策略
         String refResource = rule.getRefResource();
         int strategy = rule.getStrategy();
 
+        // 如果引用资源为空，则无法选择参考节点
         if (StringUtil.isEmpty(refResource)) {
             return null;
         }
 
+        // 如果策略为相关联，尝试获取对应于引用资源的ClusterNode
         if (strategy == RuleConstant.STRATEGY_RELATE) {
             return ClusterBuilderSlot.getClusterNode(refResource);
         }
 
+        // 如果策略为链式，检查引用资源是否与上下文名称匹配
+        // 如果不匹配，则无法选择参考节点
         if (strategy == RuleConstant.STRATEGY_CHAIN) {
             if (!refResource.equals(context.getName())) {
                 return null;
             }
+            // 如果匹配，则直接返回默认节点
             return node;
         }
-        // No node.
+
+        // 如果策略不符合上述任何条件，则无法选择参考节点
+        // 没有节点。
         return null;
     }
+
 
     private static boolean filterOrigin(String origin) {
         // Origin cannot be `default` or `other`.
         return !RuleConstant.LIMIT_APP_DEFAULT.equals(origin) && !RuleConstant.LIMIT_APP_OTHER.equals(origin);
     }
 
+    /**
+     * 根据规则、上下文和当前节点，选择具体的节点。
+     * 选择节点的逻辑基于规则的限制应用、策略和来源等条件。
+     *
+     * @param rule 流控规则，包含限制应用、策略等信息。
+     * @param context 上下文，包含请求来源等信息。
+     * @param node 当前节点 DefaultNode
+     * @return 返回根据条件选择的节点，可能是原始节点、统计节点或集群节点。
+     */
     static Node selectNodeByRequesterAndStrategy(/*@NonNull*/ FlowRule rule, Context context, DefaultNode node) {
         // The limit app should not be empty.
+        // 获取规则中的限制应用、策略和上下文中的来源
         String limitApp = rule.getLimitApp();
         int strategy = rule.getStrategy();
         String origin = context.getOrigin();
 
+        // 当限制应用与来源匹配，并且来源通过过滤条件时
         if (limitApp.equals(origin) && filterOrigin(origin)) {
+            // 如果流控模式是直接，返回来源统计节点
             if (strategy == RuleConstant.STRATEGY_DIRECT) {
                 // Matches limit origin, return origin statistic node.
                 return context.getOriginNode();
             }
-
+            // 否则，选择引用节点
             return selectReferenceNode(rule, context, node);
         } else if (RuleConstant.LIMIT_APP_DEFAULT.equals(limitApp)) {
+            // 如果限制应用是默认值
+            // 如果策略是直接，返回ClusterNode
             if (strategy == RuleConstant.STRATEGY_DIRECT) {
                 // Return the cluster node.
                 return node.getClusterNode();
             }
-
+            // 选择引用节点
             return selectReferenceNode(rule, context, node);
         } else if (RuleConstant.LIMIT_APP_OTHER.equals(limitApp)
             && FlowRuleManager.isOtherOrigin(origin, rule.getResource())) {
+            // 如果限制应用是其他，并且来源是其他资源
+            // 如果策略是直接，返回来源统计节点
             if (strategy == RuleConstant.STRATEGY_DIRECT) {
                 return context.getOriginNode();
             }
