@@ -137,22 +137,36 @@ public class NodeSelectorSlot extends AbstractLinkedProcessorSlot<Object> {
         throws Throwable {
         /*
          * It's interesting that we use context name rather resource name as the map key.
+         * 使用上下文名称而非资源名称作为映射键。
          *
          * Remember that same resource({@link ResourceWrapper#equals(Object)}) will share
          * the same {@link ProcessorSlotChain} globally, no matter in which context. So if
          * code goes into {@link #entry(Context, ResourceWrapper, DefaultNode, int, Object...)},
          * the resource name must be same but context name may not.
+         * 需要记住的是，相同的资源（通过{@link ResourceWrapper#equals(Object)}判断）在全局范围内会共享
+         * 同一个{@link ProcessorSlotChain}，无论是在哪个上下文中。因此，如果代码进入到
+         * {@link #entry(Context, ResourceWrapper, DefaultNode, int, Object...)}方法，
+         * 资源名称必须相同，但上下文名称可能不同。
          *
          * If we use {@link com.alibaba.csp.sentinel.SphU#entry(String resource)} to
          * enter same resource in different context, using context name as map key can
          * distinguish the same resource. In this case, multiple {@link DefaultNode}s will be created
          * of the same resource name, for every distinct context (different context name) each.
+         * 如果我们使用{@link com.alibaba.csp.sentinel.SphU#entry(String resource)}
+         * 在不同的上下文中访问相同的资源，使用上下文名称作为映射键可以
+         * 区分相同的资源。在这种情况下，对于每一个不同的上下文（即不同的上下文名称），
+         * 都将创建多个具有相同资源名称的{@link DefaultNode}。
          *
          * Consider another question. One resource may have multiple {@link DefaultNode},
          * so what is the fastest way to get total statistics of the same resource?
          * The answer is all {@link DefaultNode}s with same resource name share one
          * {@link ClusterNode}. See {@link ClusterBuilderSlot} for detail.
+         * 再考虑一个问题。一个资源可能有多个{@link DefaultNode}，
+         * 那么获取同一资源的总体统计最快的方式是什么？
+         * 答案是所有具有相同资源名称的{@link DefaultNode}都共享一个
+         * {@link ClusterNode}。详细信息请参见{@link ClusterBuilderSlot}。
          */
+        //根据上下文名称尝试从映射中获取对应的资源节点
         DefaultNode node = map.get(context.getName());
         if (node == null) {
             synchronized (this) {
@@ -169,7 +183,7 @@ public class NodeSelectorSlot extends AbstractLinkedProcessorSlot<Object> {
 
             }
         }
-
+        //将当前资源节点设置为上下文的当前节点，用于后续的逻辑处理
         context.setCurNode(node);
         fireEntry(context, resourceWrapper, node, count, prioritized, args);
     }

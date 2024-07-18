@@ -109,19 +109,28 @@ public abstract class LeapArray<T> {
 
     /**
      * Get bucket item at provided timestamp.
+     * 根据指定时间戳获取当前窗口
      *
      * @param timeMillis a valid timestamp in milliseconds
      * @return current bucket item at provided timestamp if the time is valid; null if time is invalid
+     * 如果时间戳有效，则返回当前窗口项，如果时间戳无效 返回null
      */
     public WindowWrap<T> currentWindow(long timeMillis) {
         if (timeMillis < 0) {
             return null;
         }
-
+        // 计算指定时间戳对应的窗口索引
         int idx = calculateTimeIdx(timeMillis);
         // Calculate current bucket start time.
+        // 计算窗口的起始时间
         long windowStart = calculateWindowStart(timeMillis);
 
+        /*
+         * 从循环数组中获取指定时间戳对应的窗口项，并根据窗口项的状态进行处理：
+         * 1. 如果窗口项不存在，则创建一个新的窗口项并尝试使用CAS更新循环数组；
+         * 2. 如果窗口项存在且起始时间匹配，则直接返回该窗口项；
+         * 3. 如果窗口项存在但起始时间不匹配（即窗口项已过期），则尝试获取更新锁，对窗口项进行重置。
+         */
         /*
          * Get bucket item at given time from the array.
          *
@@ -131,6 +140,7 @@ public abstract class LeapArray<T> {
          */
         while (true) {
             WindowWrap<T> old = array.get(idx);
+            // 如果窗口项不存在，尝试创建并更新循环数组
             if (old == null) {
                 /*
                  *     B0       B1      B2    NULL      B4
@@ -146,9 +156,11 @@ public abstract class LeapArray<T> {
                  */
                 WindowWrap<T> window = new WindowWrap<T>(windowLengthInMs, windowStart, newEmptyBucket(timeMillis));
                 if (array.compareAndSet(idx, null, window)) {
+                    // 更新成功，返回新创建的窗口项
                     // Successfully updated, return the created bucket.
                     return window;
                 } else {
+                    // 更新失败，线程让出CPU时间片，等待重试
                     // Contention failed, the thread will yield its time slice to wait for bucket available.
                     Thread.yield();
                 }
@@ -164,6 +176,7 @@ public abstract class LeapArray<T> {
                  * If current {@code windowStart} is equal to the start timestamp of old bucket,
                  * that means the time is within the bucket, so directly return the bucket.
                  */
+                // 窗口项存在且起始时间匹配，直接返回该窗口项
                 return old;
             } else if (windowStart > old.windowStart()) {
                 /*
@@ -183,18 +196,22 @@ public abstract class LeapArray<T> {
                  * The update lock is conditional (tiny scope) and will take effect only when
                  * bucket is deprecated, so in most cases it won't lead to performance loss.
                  */
+                // 窗口项存在但起始时间不匹配，尝试获取更新锁以重置窗口项
                 if (updateLock.tryLock()) {
                     try {
+                        // 成功获取更新锁，重置窗口项并返回
                         // Successfully get the update lock, now we reset the bucket.
                         return resetWindowTo(old, windowStart);
                     } finally {
                         updateLock.unlock();
                     }
                 } else {
+                    // 获取更新锁失败，线程让出CPU时间片，等待重试
                     // Contention failed, the thread will yield its time slice to wait for bucket available.
                     Thread.yield();
                 }
             } else if (windowStart < old.windowStart()) {
+                // 理论上这种情况不应该发生，如果发生了，则创建一个新的窗口项并返回
                 // Should not go through here, as the provided time is already behind.
                 return new WindowWrap<T>(windowLengthInMs, windowStart, newEmptyBucket(timeMillis));
             }

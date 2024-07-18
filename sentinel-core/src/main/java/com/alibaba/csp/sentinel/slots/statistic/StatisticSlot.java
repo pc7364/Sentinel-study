@@ -51,6 +51,18 @@ import com.alibaba.csp.sentinel.slots.block.BlockException;
 @Spi(order = Constants.ORDER_STATISTIC_SLOT)
 public class StatisticSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
 
+    /**
+     * 处理统计插槽的入口逻辑。
+     * 此方法主要统计入口调用的相关信息，包括通过的请求数、阻塞的请求数等，并根据情况触发相应的回调处理。
+     *
+     * @param context      当前执行上下文
+     * @param resourceWrapper  被入口包装的资源
+     * @param node         当前正在处理的节点
+     * @param count        此次入口调用的次数
+     * @param prioritized  此入口是否优先级调用
+     * @param args         额外的参数
+     * @throws Throwable   如果在处理过程中发生异常
+     */
     @Override
     public void entry(Context context, ResourceWrapper resourceWrapper, DefaultNode node, int count,
                       boolean prioritized, Object... args) throws Throwable {
@@ -59,6 +71,8 @@ public class StatisticSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
             fireEntry(context, resourceWrapper, node, count, prioritized, args);
 
             // Request passed, add thread count and pass count.
+            // 增加当前节点的线程数和通过请求的数量
+            // 请求通过，增加线程数和通过的请求数。
             node.increaseThreadNum();
             node.addPassRequest(count);
 
@@ -68,8 +82,10 @@ public class StatisticSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
                 context.getCurEntry().getOriginNode().addPassRequest(count);
             }
 
+            // 如果入口类型为IN，增加全局入口节点的线程数和通过请求的数量以供全局统计
             if (resourceWrapper.getEntryType() == EntryType.IN) {
                 // Add count for global inbound entry node for global statistics.
+                // 全局入站入口节点计数增加以供全局统计
                 Constants.ENTRY_NODE.increaseThreadNum();
                 Constants.ENTRY_NODE.addPassRequest(count);
             }

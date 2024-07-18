@@ -57,7 +57,7 @@ public class InterceptorConfig implements WebMvcConfigurer {
         // If set it to false, entrance contexts will be separated by different URLs,
         // which is useful to support "chain" relation flow strategy.
         // We can change it and view different result in `Resource Chain` menu of dashboard.
-        config.setWebContextUnify(true);
+        config.setWebContextUnify(false);
         config.setOriginParser(request -> request.getHeader("S-user"));
 
         // Add sentinel interceptor
