@@ -40,11 +40,19 @@ import com.alibaba.csp.sentinel.util.TimeUtil;
  */
 public abstract class LeapArray<T> {
 
+    // 定义窗口长度，单位为毫秒，用于统计在特定时间范围内的数据。
     protected int windowLengthInMs;
+    // 定义样本数量，用于统计在窗口期内的数据点个数。
     protected int sampleCount;
+    // 定义间隔时间，单位为毫秒，用于确定两个统计周期之间的间隔。
     protected int intervalInMs;
+    // 定义间隔时间，单位为秒，用于计算和比较时间间隔，提高计算精度。
     private double intervalInSecond;
-
+    /**
+     * 使用AtomicReferenceArray来安全地存储WindowWrap对象的引用。
+     * AtomicReferenceArray的使用保证了数组访问的线程安全，尤其在多线程环境下对数组元素的读写操作。
+     * 这里使用泛型T，使得WindowWrap可以持有任何类型的对象，提高了代码的通用性和灵活性。
+     */
     protected final AtomicReferenceArray<WindowWrap<T>> array;
 
     /**
@@ -103,7 +111,18 @@ public abstract class LeapArray<T> {
         return (int)(timeId % array.length());
     }
 
+    /**
+     * 计算窗口的起始时间。
+     *
+     * 此方法用于确定给定时间戳所属的时间窗口的起始时间。时间窗口的长度由windowLengthInMs定义。
+     * 方法通过将给定的时间戳减去其模windowLengthInMs的值来计算窗口的起始时间。这样做的目的是将时间戳调整到
+     * 对应的窗口的最开始时间。这对于对时间数据进行分组或聚合操作非常有用，例如按照每小时、每天等进行统计。
+     *
+     * @param timeMillis 给定的时间戳，以毫秒为单位。
+     * @return 返回计算得到的时间窗口的起始时间戳。
+     */
     protected long calculateWindowStart(/*@Valid*/ long timeMillis) {
+        // 计算时间窗口的起始时间，通过减去余数来对时间戳进行窗口对齐。
         return timeMillis - timeMillis % windowLengthInMs;
     }
 
@@ -343,20 +362,37 @@ public abstract class LeapArray<T> {
         return values(TimeUtil.currentTimeMillis());
     }
 
+    /**
+     * 根据指定的时间戳获取窗口内的值。
+     * <p>
+     * 此方法用于从窗口数组中筛选出在指定时间戳之前未过期的元素，并返回这些元素的值列表。
+     * 如果时间戳小于0，则认为是无效请求，直接返回空列表。
+     *
+     * @param timeMillis 指定的时间戳，用于判断窗口是否过期。
+     * @return 包含未过期元素值的列表。如果所有元素都已过期或不存在，则返回空列表。
+     */
     public List<T> values(long timeMillis) {
+        // 检查时间戳是否有效，无效则返回空列表
         if (timeMillis < 0) {
             return new ArrayList<T>();
         }
+        // 获取窗口数组的长度
         int size = array.length();
+        // 初始化结果列表，预设大小为窗口数组的长度，以减少动态扩容的开销
         List<T> result = new ArrayList<T>(size);
 
+        // 遍历窗口数组
         for (int i = 0; i < size; i++) {
+            // 获取窗口包装对象
             WindowWrap<T> windowWrap = array.get(i);
+            // 如果窗口包装对象为空或窗口已过期，则跳过当前循环
             if (windowWrap == null || isWindowDeprecated(timeMillis, windowWrap)) {
                 continue;
             }
+            // 如果窗口未过期，则将窗口内的值添加到结果列表中
             result.add(windowWrap.value());
         }
+        // 返回包含未过期元素值的列表
         return result;
     }
 
