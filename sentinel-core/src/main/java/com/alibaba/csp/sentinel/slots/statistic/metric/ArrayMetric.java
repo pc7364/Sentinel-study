@@ -153,6 +153,7 @@ public class ArrayMetric implements Metric {
     public long pass() {
         data.currentWindow();
         long pass = 0;
+        // 获取所有有效的窗口的 MetricBucket 列表
         List<MetricBucket> list = data.values();
 
         for (MetricBucket window : list) {
