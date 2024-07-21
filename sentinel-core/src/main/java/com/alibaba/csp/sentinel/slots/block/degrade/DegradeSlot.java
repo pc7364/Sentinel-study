@@ -45,18 +45,37 @@ public class DegradeSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
         fireEntry(context, resourceWrapper, node, count, prioritized, args);
     }
 
+    /**
+     * 执行降级检查。获取当前资源的断路器列表，并根据规则检查请求是否应被允许。
+     *
+     * @param context 当前上下文
+     * @param r 资源
+     * @throws BlockException 如果请求未通过降级检查
+     */
     void performChecking(Context context, ResourceWrapper r) throws BlockException {
+        // 获取针对当前资源的所有熔断器实例
         List<CircuitBreaker> circuitBreakers = DegradeRuleManager.getCircuitBreakers(r.getName());
+        // 如果没有配置任何熔断器，则无需进行进一步检查
         if (circuitBreakers == null || circuitBreakers.isEmpty()) {
             return;
         }
+        // 遍历所有熔断器，检查是否应该触发熔断
         for (CircuitBreaker cb : circuitBreakers) {
+            // 如果当前熔断器的检查失败，即规则被触发，则抛出异常，阻止请求的执行
             if (!cb.tryPass(context)) {
                 throw new DegradeException(cb.getRule().getLimitApp(), cb.getRule());
             }
         }
     }
 
+    /**
+     * 处理请求的出口阶段。主要处理请求完成的统计，并调用下一个插槽的退出过程。
+     *
+     * @param context 当前上下文
+     * @param r 资源
+     * @param count 参数的数量
+     * @param args 额外参数
+     */
     @Override
     public void exit(Context context, ResourceWrapper r, int count, Object... args) {
         Entry curEntry = context.getCurEntry();
@@ -64,7 +83,9 @@ public class DegradeSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
             fireExit(context, r, count, args);
             return;
         }
+        // 获取当前资源的断路器列表
         List<CircuitBreaker> circuitBreakers = DegradeRuleManager.getCircuitBreakers(r.getName());
+        // 如果资源没有断路器，或列表为空，直接触发退出过程
         if (circuitBreakers == null || circuitBreakers.isEmpty()) {
             fireExit(context, r, count, args);
             return;
@@ -72,6 +93,8 @@ public class DegradeSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
 
         if (curEntry.getBlockError() == null) {
             // passed request
+            // 遍历资源的所有断路器，为每个断路器调用onRequestComplete方法
+            // 已通过的请求
             for (CircuitBreaker circuitBreaker : circuitBreakers) {
                 circuitBreaker.onRequestComplete(context);
             }

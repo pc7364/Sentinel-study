@@ -5,6 +5,8 @@ import com.alibaba.csp.sentinel.Entry;
 import com.alibaba.csp.sentinel.SphU;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
 import com.alibaba.csp.sentinel.slots.block.RuleConstant;
+import com.alibaba.csp.sentinel.slots.block.degrade.DegradeRule;
+import com.alibaba.csp.sentinel.slots.block.degrade.DegradeRuleManager;
 import com.alibaba.csp.sentinel.slots.block.flow.FlowRule;
 import com.alibaba.csp.sentinel.slots.block.flow.FlowRuleManager;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -51,8 +53,8 @@ public class DashboardController {
 
 
     @RequestMapping("/testDegrade")
-    public String testDegrade() {
-        int i = 1/0;
+    public String testDegrade(@RequestParam int num) {
+        int i = 1/num;
         return "testDegrade";
     }
 
@@ -77,6 +79,17 @@ public class DashboardController {
         rules.add(rule);
         // 加载配置好的规则
         FlowRuleManager.loadRules(rules);
+
+        DegradeRule degradeRule = new DegradeRule();
+        List<DegradeRule> degradeRules = new ArrayList<>();
+        degradeRules.add(degradeRule);
+        degradeRule.setResource("GET:/testDegrade");
+        degradeRule.setGrade(RuleConstant.DEGRADE_GRADE_EXCEPTION_COUNT);
+        degradeRule.setCount(1);
+        degradeRule.setTimeWindow(30);
+        degradeRule.setMinRequestAmount(1);
+        degradeRule.setStatIntervalMs(1000*500);
+        DegradeRuleManager.loadRules(degradeRules);
     }
 
 }

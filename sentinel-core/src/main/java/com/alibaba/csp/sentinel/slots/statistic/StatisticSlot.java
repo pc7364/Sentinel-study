@@ -138,27 +138,49 @@ public class StatisticSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
         }
     }
 
+    /**
+     * 记录统计条目完成并触发退出处理。
+     * <p>
+     * 此方法主要记录当前条目的完成时间，并计算处理时间（响应时间），
+     * 同时调用退出回调进行进一步处理。如果当前条目有关联的错误，也会记录错误信息。
+     * 另外，它会根据资源类型处理原始节点和入口节点的统计记录。
+     * <p>
+     * 方法最后通过触发退出回调来处理资源释放和统计信息的更新等操作。
+     *
+     * @param context       当前上下文，包含条目和其他相关信息。
+     * @param resourceWrapper 包装的资源，用于标识正在处理的资源类型。
+     * @param count         当前操作计数次数，用于统计目的。
+     * @param args          可变参数，可用于向退出回调传递额外信息。
+     */
     @Override
     public void exit(Context context, ResourceWrapper resourceWrapper, int count, Object... args) {
         Node node = context.getCurNode();
-
+        // 如果当前条目没有阻塞错误，继续完成记录
         if (context.getCurEntry().getBlockError() == null) {
             // Calculate response time (use completeStatTime as the time of completion).
+            // 计算完成时间。
+            // 使用completeStatTime作为完成时间计算响应时间
             long completeStatTime = TimeUtil.currentTimeMillis();
             context.getCurEntry().setCompleteTimestamp(completeStatTime);
+            // 计算响应时间。
             long rt = completeStatTime - context.getCurEntry().getCreateTimestamp();
-
+            // 获取与当前条目关联的任何错误信息。
             Throwable error = context.getCurEntry().getError();
 
             // Record response time and success count.
+            // 为当前节点和原始节点记录完成信息。
+            // 记录响应时间和成功次数。
             recordCompleteFor(node, count, rt, error);
             recordCompleteFor(context.getCurEntry().getOriginNode(), count, rt, error);
+            // 如果资源类型是入口，也为入口节点记录。
             if (resourceWrapper.getEntryType() == EntryType.IN) {
                 recordCompleteFor(Constants.ENTRY_NODE, count, rt, error);
             }
         }
 
         // Handle exit event with registered exit callback handlers.
+        // 触发所有注册的退出回调进行进一步处理。
+        // 处理退出事件与注册的退出回调处理器。
         Collection<ProcessorSlotExitCallback> exitCallbacks = StatisticSlotCallbackRegistry.getExitCallbacks();
         for (ProcessorSlotExitCallback handler : exitCallbacks) {
             handler.onExit(context, resourceWrapper, count, args);
